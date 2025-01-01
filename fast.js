@@ -26,6 +26,8 @@ const wsPumpPortal = new WebSocket(PUMP_PORTAL_WS);
 
 async function sendJitoBundleTransaction(parsedData) {
     try {
+        const startTime = Date.now();
+
         const transactionPayload = {
             publicKey: walletKeypair.publicKey.toBase58(),
             action: "buy",
@@ -37,11 +39,15 @@ async function sendJitoBundleTransaction(parsedData) {
             pool: "pump",
         };
 
+        console.log(chalk.blueBright("⏳ Inizio richiesta a PumpPortal..."));
         const pumpPortalResponse = await fetch(PUMP_PORTAL_API, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify([transactionPayload]),
         });
+
+        const pumpPortalTime = Date.now() - startTime;
+        console.log(chalk.green(`✅ Tempo risposta PumpPortal: ${pumpPortalTime} ms`));
 
         if (pumpPortalResponse.status === 200) {
             const transactions = await pumpPortalResponse.json();
@@ -51,6 +57,8 @@ async function sendJitoBundleTransaction(parsedData) {
                 return bs58.encode(tx.serialize());
             });
 
+            console.log(chalk.blueBright("⏳ Invio bundle a Jito..."));
+            const jitoStartTime = Date.now();
             const jitoResponse = await fetch(JITO_BUNDLE_API, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -61,6 +69,9 @@ async function sendJitoBundleTransaction(parsedData) {
                     params: [signedTransactions],
                 }),
             });
+
+            const jitoTime = Date.now() - jitoStartTime;
+            console.log(chalk.green(`✅ Tempo risposta Jito: ${jitoTime} ms`));
 
             if (jitoResponse.ok) {
                 console.log(chalk.greenBright("\n ✅ Jito bundle inviato con successo! \n"));
@@ -88,10 +99,18 @@ wsPumpPortal.on('open', () => {
 
 wsPumpPortal.on('message', async (message) => {
     try {
+        const startTime = Date.now();
         const parsedData = JSON.parse(message);
+        const parseTime = Date.now() - startTime;
+
+        console.log(chalk.green(`✅ Tempo parsing messaggio: ${parseTime} ms`));
+
         if (parsedData.txType === "buy" && parsedData.mint && parsedData.solAmount) {
             console.log(chalk.magentaBright("\n 🚀 Replica immediata di una BUY! \n"));
+            const actionStartTime = Date.now();
             await sendJitoBundleTransaction(parsedData);
+            const actionTime = Date.now() - actionStartTime;
+            console.log(chalk.green(`✅ Tempo totale replica BUY: ${actionTime} ms`));
         }
     } catch (error) {
         console.error(chalk.red(`\n ❌ Errore nel processamento del messaggio WebSocket: ${error.message} \n`));
