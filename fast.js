@@ -3,36 +3,41 @@ import { VersionedTransaction, Connection, Keypair } from '@solana/web3.js';
 import bs58 from 'bs58';
 import fetch from 'node-fetch';
 import chalk from 'chalk';
+import dotenv from 'dotenv';
+
+dotenv.config(); // Carica le variabili dal file .env
 
 // Configurazioni principali
-const RPC_ENDPOINT = "https://mainnet.helius-rpc.com/?api-key=682e6238-288a-4334-af78-69dc554da3d7";
-const MONITORED_WALLET = "DfMxre4cKmvogbLrPigxmibVTTQDuzjdXojWzjCXXhzj";
-const WALLET_SECRET_KEY = "66176fzGQwArXZcCQBMeeSaw7TLAnmG3pVBXMrRn97iHhuBxq8uPDkVJweKNr5H4GUKJJkAM6AZwuDsu6JwSAETW";
-const DEFAULT_SLIPPAGE = 3;
-const DEFAULT_PRIORITY_FEE = 0.01;
+const RPC_ENDPOINT = process.env.RPC_ENDPOINT;
+const MONITORED_WALLET = process.env.MONITORED_WALLET;
+const WALLET_SECRET_KEY = process.env.WALLET_SECRET_KEY;
+const DEFAULT_SLIPPAGE = parseFloat(process.env.DEFAULT_SLIPPAGE);
+const DEFAULT_PRIORITY_FEE = parseFloat(process.env.DEFAULT_PRIORITY_FEE);
+const PUMP_PORTAL_WS = process.env.PUMP_PORTAL_WS;
+const PUMP_PORTAL_API = process.env.PUMP_PORTAL_API;
+const JITO_BUNDLE_API = process.env.JITO_BUNDLE_API;
 
 // Inizializza connessione e chiave del wallet
 const web3Connection = new Connection(RPC_ENDPOINT, 'confirmed');
 const walletKeypair = Keypair.fromSecretKey(bs58.decode(WALLET_SECRET_KEY));
 
 // WebSocket verso pumpportal.fun
-const wsPumpPortal = new WebSocket('wss://pumpportal.fun/api/data');
+const wsPumpPortal = new WebSocket(PUMP_PORTAL_WS);
 
 async function sendJitoBundleTransaction(parsedData) {
     try {
-        // Crea una richiesta per inviare la transazione
         const transactionPayload = {
             publicKey: walletKeypair.publicKey.toBase58(),
             action: "buy",
             mint: parsedData.mint,
             denominatedInSol: "false",
-            amount: 250000, // Valore da replicare immediatamente
+            amount: 250000,
             slippage: DEFAULT_SLIPPAGE,
             priorityFee: DEFAULT_PRIORITY_FEE,
             pool: "pump",
         };
 
-        const pumpPortalResponse = await fetch(`https://pumpportal.fun/api/trade-local`, {
+        const pumpPortalResponse = await fetch(PUMP_PORTAL_API, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify([transactionPayload]),
@@ -46,7 +51,7 @@ async function sendJitoBundleTransaction(parsedData) {
                 return bs58.encode(tx.serialize());
             });
 
-            const jitoResponse = await fetch(`https://mainnet.block-engine.jito.wtf/api/v1/bundles`, {
+            const jitoResponse = await fetch(JITO_BUNDLE_API, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
