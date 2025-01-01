@@ -24,22 +24,22 @@ const walletKeypair = Keypair.fromSecretKey(bs58.decode(WALLET_SECRET_KEY));
 // WebSocket verso pumpportal.fun
 const wsPumpPortal = new WebSocket(PUMP_PORTAL_WS);
 
-async function sendJitoBundleTransaction(parsedData) {
+async function sendJitoBundleTransaction(parsedData, action) {
     try {
         const startTime = Date.now();
 
         const transactionPayload = {
             publicKey: walletKeypair.publicKey.toBase58(),
-            action: "buy",
+            action: action, // "buy" o "sell"
             mint: parsedData.mint,
             denominatedInSol: "false",
-            amount: 250000,
+            amount: action === "buy" ? 250000 : "100%", // Vendita 100%
             slippage: DEFAULT_SLIPPAGE,
             priorityFee: DEFAULT_PRIORITY_FEE,
             pool: "pump",
         };
 
-        console.log(chalk.blueBright("⏳ Inizio richiesta a PumpPortal..."));
+        console.log(chalk.blueBright(`⏳ Inizio richiesta a PumpPortal per ${action}...`));
         const pumpPortalResponse = await fetch(PUMP_PORTAL_API, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -74,15 +74,15 @@ async function sendJitoBundleTransaction(parsedData) {
             console.log(chalk.green(`✅ Tempo risposta Jito: ${jitoTime} ms`));
 
             if (jitoResponse.ok) {
-                console.log(chalk.greenBright("\n ✅ Jito bundle inviato con successo! \n"));
+                console.log(chalk.greenBright(`\n ✅ Jito bundle inviato con successo (${action})! \n`));
             } else {
-                console.error(chalk.red("\n ❌ Errore nell'invio del Jito bundle \n"));
+                console.error(chalk.red(`\n ❌ Errore nell'invio del Jito bundle (${action}) \n`));
             }
         } else {
-            console.error(chalk.red("\n ❌ Errore nella richiesta al PumpPortal \n"));
+            console.error(chalk.red(`\n ❌ Errore nella richiesta al PumpPortal (${action}) \n`));
         }
     } catch (error) {
-        console.error(chalk.red(`\n ❌ Errore nell'invio del Jito bundle: ${error.message} \n`));
+        console.error(chalk.red(`\n ❌ Errore nell'invio del Jito bundle (${action}): ${error.message} \n`));
     }
 }
 
@@ -108,9 +108,17 @@ wsPumpPortal.on('message', async (message) => {
         if (parsedData.txType === "buy" && parsedData.mint && parsedData.solAmount) {
             console.log(chalk.magentaBright("\n 🚀 Replica immediata di una BUY! \n"));
             const actionStartTime = Date.now();
-            await sendJitoBundleTransaction(parsedData);
+            await sendJitoBundleTransaction(parsedData, "buy");
             const actionTime = Date.now() - actionStartTime;
             console.log(chalk.green(`✅ Tempo totale replica BUY: ${actionTime} ms`));
+        }
+
+        if (parsedData.txType === "sell" && parsedData.mint) {
+            console.log(chalk.magentaBright("\n 🚀 Replica immediata di una SELL! \n"));
+            const actionStartTime = Date.now();
+            await sendJitoBundleTransaction(parsedData, "sell");
+            const actionTime = Date.now() - actionStartTime;
+            console.log(chalk.green(`✅ Tempo totale replica SELL: ${actionTime} ms`));
         }
     } catch (error) {
         console.error(chalk.red(`\n ❌ Errore nel processamento del messaggio WebSocket: ${error.message} \n`));
