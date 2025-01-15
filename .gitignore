@@ -13,6 +13,8 @@ l.js
 server.js
 serverjito.js
 trades.db
+wss.js
+tg.js
 
 node_modules
 dist
